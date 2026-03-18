@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Hover Translator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- 标题 -->
+    <div class="header">
+      <h1>Smart Hover Translator</h1>
+    </div>
+
+    <!-- 开关区域 -->
+    <div class="toggle-section">
+      <span class="toggle-label">翻译功能</span>
+      <label class="switch">
+        <input type="checkbox" id="enableToggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- 状态信息区域 -->
+    <div class="status-section">
+      <div class="status-row">
+        <span class="status-label">当前状态：</span>
+        <span class="status-value" id="statusText">已启用</span>
+        <span class="status-dot" id="statusDot"></span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">API 提供商：</span>
+        <span class="status-value" id="providerName">-</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">模型：</span>
+        <span class="status-value" id="modelName">-</span>
+      </div>
+    </div>
+
+    <!-- API Key 未配置提示 -->
+    <div class="warning-section" id="apiKeyWarning" style="display: none;">
+      <span class="warning-icon">⚠️</span>
+      <span class="warning-text">请先配置 API Key</span>
+    </div>
+
+    <!-- 详细设置按钮 -->
+    <div class="footer">
+      <button class="settings-btn" id="openOptions">
+        <span class="settings-icon">⚙️</span>
+        <span>详细设置</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

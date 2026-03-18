@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设置 - Smart Hover Translator</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <!-- 页面标题 -->
+    <header class="header">
+      <h1>Smart Hover Translator 设置</h1>
+    </header>
+
+    <main class="main">
+      <!-- API 配置卡片 -->
+      <section class="card">
+        <h2 class="card-title">
+          <span class="card-icon">▶</span>
+          API 配置
+        </h2>
+        <div class="card-content">
+          <!-- API 提供商选择 -->
+          <div class="form-group">
+            <label class="form-label">API 提供商</label>
+            <div class="provider-options">
+              <label class="radio-option">
+                <input type="radio" name="apiProvider" value="alibaba">
+                <span class="radio-custom"></span>
+                <span class="radio-label">阿里云百炼</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="apiProvider" value="openai">
+                <span class="radio-custom"></span>
+                <span class="radio-label">OpenAI</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="apiProvider" value="deepseek">
+                <span class="radio-custom"></span>
+                <span class="radio-label">DeepSeek</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="apiProvider" value="custom">
+                <span class="radio-custom"></span>
+                <span class="radio-label">自定义</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- API Base URL -->
+          <div class="form-group">
+            <label class="form-label">API Base URL</label>
+            <input type="text" id="baseUrl" class="form-input" placeholder="https://api.example.com/v1">
+            <p class="form-hint" id="baseUrlHint">选择预设提供商时自动填充，选择"自定义"时可编辑</p>
+            <p class="form-hint" style="color: #e67e22;">⚠️ 注意：使用自定义 API 域名可能需要额外授权</p>
+          </div>
+
+          <!-- 模型名称 -->
+          <div class="form-group">
+            <label class="form-label">模型名称</label>
+            <input type="text" id="modelName" class="form-input" placeholder="输入模型名称">
+            <p class="form-hint">预设提供商有默认值，可根据需要修改</p>
+          </div>
+
+          <!-- API Key -->
+          <div class="form-group">
+            <label class="form-label">API Key</label>
+            <div class="input-group">
+              <input type="password" id="apiKey" class="form-input" placeholder="输入你的 API Key">
+              <button type="button" class="input-addon" id="toggleApiKey" title="显示/隐藏">
+                <span class="eye-icon" id="eyeIcon">👁</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="testApiBtn">测试连接</button>
+            </div>
+            <p class="form-hint security-hint">🔒 API Key 安全存储在本地，不会同步到云端</p>
+            <div class="test-result" id="testResult"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 悬停设置卡片 -->
+      <section class="card">
+        <h2 class="card-title">
+          <span class="card-icon">▶</span>
+          悬停设置
+        </h2>
+        <div class="card-content">
+          <div class="form-group">
+            <label class="form-label">悬停延迟</label>
+            <div class="slider-group">
+              <input type="range" id="hoverDelay" class="form-range" min="100" max="1000" step="50" value="300">
+              <span class="slider-value" id="hoverDelayValue">300ms</span>
+            </div>
+            <p class="form-hint">鼠标悬停在单词上多久后触发翻译（100-1000毫秒）</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 网站黑名单卡片 -->
+      <section class="card">
+        <h2 class="card-title">
+          <span class="card-icon">▶</span>
+          网站黑名单
+        </h2>
+        <div class="card-content">
+          <p class="form-hint" style="margin-bottom: 12px;">以下网站不触发翻译：</p>
+          
+          <!-- 添加域名 -->
+          <div class="form-group">
+            <div class="input-group">
+              <input type="text" id="blacklistInput" class="form-input" placeholder="输入域名，如 example.com">
+              <button type="button" class="btn btn-secondary" id="addBlacklistBtn">添加</button>
+            </div>
+            <p class="form-hint error-hint" id="blacklistError"></p>
+          </div>
+
+          <!-- 黑名单列表 -->
+          <div class="blacklist-container" id="blacklistContainer">
+            <!-- 动态生成的黑名单项 -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 保存按钮区域 -->
+    <footer class="footer">
+      <button class="btn btn-primary" id="saveBtn">保存设置</button>
+      <div class="save-status" id="saveStatus"></div>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
