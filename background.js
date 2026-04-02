@@ -6,6 +6,304 @@
 // 内存缓存，存储已查询过的单词结果
 const wordCache = new Map();
 
+// ==================== 生词本相关 ====================
+
+/**
+ * 复习阶段间隔（艾宾浩斯曲线简化版，单位：天）
+ */
+const REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30, 90];
+
+/**
+ * 从存储中获取生词本数据
+ * @returns {Promise<{words: Array, lastSync: number}>}
+ */
+async function getVocabularyData() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({
+      vocabularyWords: { words: [], lastSync: Date.now() }
+    }, (result) => {
+      resolve(result.vocabularyWords);
+    });
+  });
+}
+
+/**
+ * 保存生词本数据到存储
+ * @param {{words: Array, lastSync: number}} data - 生词本数据
+ */
+async function saveVocabularyData(data) {
+  await new Promise((resolve, reject) => {
+    chrome.storage.local.set({
+      vocabularyWords: {
+        words: data.words,
+        lastSync: Date.now()
+      }
+    }, () => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * 检查单词是否已存在（不区分大小写）
+ * @param {Array} words - 单词列表
+ * @param {string} word - 要检查的单词
+ * @returns {number} - 存在的索引，不存在返回 -1
+ */
+function findWordIndex(words, word) {
+  const lowerWord = word.toLowerCase();
+  return words.findIndex(w => w.word.toLowerCase() === lowerWord);
+}
+
+/**
+ * 添加生词到生词本
+ * @param {Object} wordData - 单词数据
+ * @returns {Promise<{success: boolean, message: string, word?: Object}>}
+ */
+async function addToVocabulary(wordData) {
+  try {
+    const vocabData = await getVocabularyData();
+    const { word } = wordData;
+    
+    // 检查是否已存在
+    const existingIndex = findWordIndex(vocabData.words, word);
+    const now = Date.now();
+    
+    if (existingIndex !== -1) {
+      // 单词已存在，更新信息
+      const existingWord = vocabData.words[existingIndex];
+      
+      // 更新释义（如果有变化）、更新 context、保留最早添加时间
+      if (wordData.phonetic && !existingWord.phonetic) {
+        existingWord.phonetic = wordData.phonetic;
+      }
+      if (wordData.definition && wordData.definition !== existingWord.definition) {
+        existingWord.definition = wordData.definition;
+      }
+      if (wordData.context && !existingWord.context) {
+        existingWord.context = wordData.context;
+      }
+      if (wordData.source && !existingWord.source) {
+        existingWord.source = wordData.source;
+      }
+      if (wordData.sourceTitle && !existingWord.sourceTitle) {
+        existingWord.sourceTitle = wordData.sourceTitle;
+      }
+      existingWord.updatedAt = now;
+      
+      await saveVocabularyData(vocabData);
+      
+      return {
+        success: true,
+        message: '该单词已在生词本中，已更新信息',
+        word: existingWord
+      };
+    }
+    
+    // 创建新单词记录
+    const newWord = {
+      id: `word_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      word: wordData.word,
+      phonetic: wordData.phonetic || '',
+      definition: wordData.definition || '',
+      context: wordData.context || '',
+      source: wordData.source || '',
+      sourceTitle: wordData.sourceTitle || '',
+      familiarity: wordData.familiarity || 1,
+      stage: 0,
+      nextReviewAt: now + 24 * 60 * 60 * 1000, // 明天
+      createdAt: now,
+      updatedAt: now,
+      reviewCount: 0
+    };
+    
+    vocabData.words.push(newWord);
+    await saveVocabularyData(vocabData);
+    
+    return {
+      success: true,
+      message: '已添加到生词本',
+      word: newWord
+    };
+  } catch (error) {
+    console.error('[Smart Hover Translator] 添加生词失败:', error);
+    return {
+      success: false,
+      message: '添加失败，请稍后重试'
+    };
+  }
+}
+
+/**
+ * 获取所有生词
+ * @returns {Promise<Array>}
+ */
+async function getVocabulary() {
+  const vocabData = await getVocabularyData();
+  // 按添加时间倒序排序
+  return vocabData.words.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/**
+ * 获取今日待复习的单词列表
+ * @returns {Promise<Array>}
+ */
+async function getTodayReview() {
+  const vocabData = await getVocabularyData();
+  const now = Date.now();
+  
+  // 筛选出今天及之前需要复习的单词
+  const dueWords = vocabData.words.filter(w => w.nextReviewAt <= now);
+  
+  // 排序：stage 小的优先（陌生优先），同 stage 按 nextReviewAt 排序
+  dueWords.sort((a, b) => {
+    if (a.stage !== b.stage) {
+      return a.stage - b.stage;
+    }
+    return a.nextReviewAt - b.nextReviewAt;
+  });
+  
+  return dueWords;
+}
+
+/**
+ * 提交复习结果
+ * @param {string} wordId - 单词 ID
+ * @param {'remembered' | 'forgotten'} result - 复习结果
+ * @returns {Promise<{success: boolean, message: string, word?: Object}>}
+ */
+async function submitReview(wordId, result) {
+  try {
+    const vocabData = await getVocabularyData();
+    const wordIndex = vocabData.words.findIndex(w => w.id === wordId);
+    
+    if (wordIndex === -1) {
+      return {
+        success: false,
+        message: '单词不存在'
+      };
+    }
+    
+    const word = vocabData.words[wordIndex];
+    
+    if (result === 'forgotten') {
+      // 忘记则重置到第一阶段
+      word.stage = 0;
+      word.nextReviewAt = Date.now() + 24 * 60 * 60 * 1000; // 明天
+    } else {
+      // 记得则进入下一阶段
+      word.stage = Math.min(word.stage + 1, REVIEW_INTERVALS.length - 1);
+      const days = REVIEW_INTERVALS[word.stage];
+      word.nextReviewAt = Date.now() + days * 24 * 60 * 60 * 1000;
+    }
+    
+    word.reviewCount++;
+    word.updatedAt = Date.now();
+    
+    await saveVocabularyData(vocabData);
+    
+    return {
+      success: true,
+      message: result === 'remembered' ? '太棒了！继续加油' : '没关系，下次一定能记住',
+      word: word
+    };
+  } catch (error) {
+    console.error('[Smart Hover Translator] 提交复习结果失败:', error);
+    return {
+      success: false,
+      message: '提交失败，请稍后重试'
+    };
+  }
+}
+
+/**
+ * 删除生词
+ * @param {string} wordId - 单词 ID
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function deleteWord(wordId) {
+  try {
+    const vocabData = await getVocabularyData();
+    const wordIndex = vocabData.words.findIndex(w => w.id === wordId);
+    
+    if (wordIndex === -1) {
+      return {
+        success: false,
+        message: '单词不存在'
+      };
+    }
+    
+    vocabData.words.splice(wordIndex, 1);
+    await saveVocabularyData(vocabData);
+    
+    return {
+      success: true,
+      message: '已删除'
+    };
+  } catch (error) {
+    console.error('[Smart Hover Translator] 删除生词失败:', error);
+    return {
+      success: false,
+      message: '删除失败，请稍后重试'
+    };
+  }
+}
+
+/**
+ * 更新生词的熟悉度
+ * @param {string} wordId - 单词 ID
+ * @param {1 | 2 | 3} familiarity - 熟悉度
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+async function updateFamiliarity(wordId, familiarity) {
+  try {
+    const vocabData = await getVocabularyData();
+    const wordIndex = vocabData.words.findIndex(w => w.id === wordId);
+    
+    if (wordIndex === -1) {
+      return {
+        success: false,
+        message: '单词不存在'
+      };
+    }
+    
+    vocabData.words[wordIndex].familiarity = familiarity;
+    vocabData.words[wordIndex].updatedAt = Date.now();
+    
+    await saveVocabularyData(vocabData);
+    
+    return {
+      success: true,
+      message: '已更新'
+    };
+  } catch (error) {
+    console.error('[Smart Hover Translator] 更新熟悉度失败:', error);
+    return {
+      success: false,
+      message: '更新失败，请稍后重试'
+    };
+  }
+}
+
+/**
+ * 获取生词统计信息
+ * @returns {Promise<{total: number, dueToday: number, mastered: number}>}
+ */
+async function getVocabularyStats() {
+  const vocabData = await getVocabularyData();
+  const now = Date.now();
+  
+  const total = vocabData.words.length;
+  const dueToday = vocabData.words.filter(w => w.nextReviewAt <= now).length;
+  const mastered = vocabData.words.filter(w => w.stage >= 5).length; // stage >= 5 视为已掌握
+  
+  return { total, dueToday, mastered };
+}
+
 // ==================== 模型 API 配置 ====================
 
 /**
@@ -588,7 +886,78 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true;
   }
-  
+
+  // 生词本相关消息处理
+  if (message.type === "ADD_TO_VOCABULARY") {
+    addToVocabulary(message.data)
+      .then(sendResponse)
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 添加生词错误:", error);
+        sendResponse({ success: false, message: "添加失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "GET_VOCABULARY") {
+    getVocabulary()
+      .then(words => sendResponse({ success: true, words }))
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 获取生词本错误:", error);
+        sendResponse({ success: false, message: "获取失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "GET_TODAY_REVIEW") {
+    getTodayReview()
+      .then(words => sendResponse({ success: true, words }))
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 获取今日复习错误:", error);
+        sendResponse({ success: false, message: "获取失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "SUBMIT_REVIEW") {
+    submitReview(message.wordId, message.result)
+      .then(sendResponse)
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 提交复习错误:", error);
+        sendResponse({ success: false, message: "提交失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "DELETE_WORD") {
+    deleteWord(message.wordId)
+      .then(sendResponse)
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 删除生词错误:", error);
+        sendResponse({ success: false, message: "删除失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "UPDATE_FAMILIARITY") {
+    updateFamiliarity(message.wordId, message.familiarity)
+      .then(sendResponse)
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 更新熟悉度错误:", error);
+        sendResponse({ success: false, message: "更新失败" });
+      });
+    return true;
+  }
+
+  if (message.type === "GET_VOCABULARY_STATS") {
+    getVocabularyStats()
+      .then(stats => sendResponse({ success: true, ...stats }))
+      .catch((error) => {
+        console.error("[Smart Hover Translator] 获取统计错误:", error);
+        sendResponse({ success: false, message: "获取失败" });
+      });
+    return true;
+  }
+
   return false;
 });
 

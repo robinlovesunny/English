@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest 1.0: 自进化的自主编程</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #1a1a2e;
+      --secondary: #16213e;
+      --accent: #0f3460;
+      --highlight: #e94560;
+      --text: #f5f5f5;
+      --text-muted: #a0a0a0;
+      --gradient-1: #667eea;
+      --gradient-2: #764ba2;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: var(--primary);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* Slide Container */
+    .slide {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 80px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(102, 126, 234, 0.08) 0%, transparent 50%),
+                  radial-gradient(ellipse at 80% 20%, rgba(233, 69, 96, 0.05) 0%, transparent 40%);
+      pointer-events: none;
+    }
+
+    /* Navigation */
+    .nav {
+      position: fixed;
+      right: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .nav-dot:hover,
+    .nav-dot.active {
+      background: var(--highlight);
+      transform: scale(1.3);
+      border-color: rgba(233, 69, 96, 0.5);
+    }
+
+    /* Progress Bar */
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2));
+      z-index: 1001;
+      transition: width 0.3s ease;
+    }
+
+    /* Typography */
+    h1 {
+      font-size: clamp(48px, 8vw, 80px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    h2 {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 40px;
+      color: var(--text);
+    }
+
+    h3 {
+      font-size: clamp(20px, 3vw, 28px);
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .subtitle {
+      font-size: clamp(18px, 2.5vw, 24px);
+      color: var(--text-muted);
+      font-weight: 400;
+      line-height: 1.6;
+      max-width: 700px;
+    }
+
+    .highlight {
+      color: var(--highlight);
+      font-weight: 600;
+    }
+
+    /* Layout Elements */
+    .content {
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 60px;
+      align-items: start;
+    }
+
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+    }
+
+    /* Cards */
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 32px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(233, 69, 96, 0.3);
+      transform: translateY(-4px);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    /* Formula Box */
+    .formula {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+      border: 1px solid rgba(102, 126, 234, 0.3);
+      border-radius: 16px;
+      padding: 40px 60px;
+      text-align: center;
+      font-size: clamp(20px, 3vw, 28px);
+      font-family: 'SF Mono', Monaco, monospace;
+      margin: 40px 0;
+    }
+
+    .formula .equals {
+      color: var(--highlight);
+      margin: 0 12px;
+    }
+
+    /* Lists */
+    .feature-list {
+      list-style: none;
+      margin-top: 24px;
+    }
+
+    .feature-list li {
+      padding: 12px 0;
+      padding-left: 28px;
+      position: relative;
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .feature-list li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--highlight);
+      font-weight: bold;
+    }
+
+    /* Table */
+    .table-container {
+      overflow-x: auto;
+      margin: 30px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    th {
+      text-align: left;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-weight: 600;
+      border-bottom: 2px solid rgba(233, 69, 96, 0.3);
+    }
+
+    td {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Quote */
+    .quote {
+      font-size: clamp(20px, 3vw, 28px);
+      font-style: italic;
+      color: var(--text-muted);
+      border-left: 4px solid var(--highlight);
+      padding-left: 30px;
+      margin: 40px 0;
+      line-height: 1.6;
+    }
+
+    /* Stage Timeline */
+    .timeline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 50px 0;
+      position: relative;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--gradient-1), var(--gradient-2));
+      transform: translateY(-50%);
+    }
+
+    .stage {
+      background: var(--primary);
+      border: 2px solid rgba(102, 126, 234, 0.5);
+      border-radius: 50%;
+      width: 100px;
+      height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+      transition: all 0.3s ease;
+    }
+
+    .stage:hover {
+      border-color: var(--highlight);
+      transform: scale(1.1);
+    }
+
+    .stage-number {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--highlight);
+    }
+
+    .stage-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Comparison */
+    .comparison {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 30px;
+      align-items: center;
+      margin: 40px 0;
+    }
+
+    .vs-badge {
+      background: var(--highlight);
+      color: white;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .vs-card {
+      padding: 30px;
+      border-radius: 16px;
+    }
+
+    .vs-card.traditional {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .vs-card.quest {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+      border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+
+    /* Stats */
+    .stats {
+      display: flex;
+      gap: 60px;
+      margin: 40px 0;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: clamp(48px, 6vw, 72px);
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* Footer */
+    .slide-footer {
+      position: absolute;
+      bottom: 30px;
+      left: 60px;
+      right: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .slide-number {
+      font-family: 'SF Mono', monospace;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-in {
+      animation: fadeInUp 0.8s ease forwards;
+    }
+
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .delay-3 { animation-delay: 0.3s; opacity: 0; }
+    .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .slide {
+        padding: 60px 30px;
+      }
+
+      .two-col,
+      .three-col {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+
+      .timeline {
+        flex-direction: column;
+        gap: 30px;
+      }
+
+      .timeline::before {
+        display: none;
+      }
+
+      .comparison {
+        grid-template-columns: 1fr;
+      }
+
+      .vs-badge {
+        transform: rotate(90deg);
+      }
+
+      .nav {
+        display: none;
+      }
+
+      .stats {
+        flex-direction: column;
+        gap: 30px;
+      }
+    }
+
+    /* Keyboard hint */
+    .keyboard-hint {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      z-index: 100;
+      display: flex;
+      gap: 16px;
+    }
+
+    .key {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: 'SF Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+  <!-- Progress Bar -->
+  <div class="progress" id="progress"></div>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-dot active" data-slide="0"></div>
+    <div class="nav-dot" data-slide="1"></div>
+    <div class="nav-dot" data-slide="2"></div>
+    <div class="nav-dot" data-slide="3"></div>
+    <div class="nav-dot" data-slide="4"></div>
+    <div class="nav-dot" data-slide="5"></div>
+    <div class="nav-dot" data-slide="6"></div>
+    <div class="nav-dot" data-slide="7"></div>
+    <div class="nav-dot" data-slide="8"></div>
+    <div class="nav-dot" data-slide="9"></div>
+  </nav>
+
+  <!-- Keyboard Hint -->
+  <div class="keyboard-hint">
+    <span><span class="key">↑</span> <span class="key">↓</span> 导航</span>
+    <span><span class="key">Home</span> 首页</span>
+  </div>
+
+  <!-- Slide 1: Cover -->
+  <section class="slide" id="slide-0">
+    <div class="content">
+      <div class="animate-in">
+        <p class="subtitle" style="margin-bottom: 16px;">Quest 1.0</p>
+        <h1>自进化的<br>自主编程</h1>
+        <p class="subtitle animate-in delay-1">Token 产出的不是代码，而是可交付的产物</p>
+      </div>
+      <div class="stats animate-in delay-2" style="margin-top: 60px;">
+        <div class="stat">
+          <div class="stat-number">26h</div>
+          <div class="stat-label">自主重构耗时</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">3</div>
+          <div class="stat-label">人工介入步骤</div>
+        </div>
+        <div class="stat">
+          <div class="stat-number">12%</div>
+          <div class="stat-label">Token 消耗降低</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Quest 团队 · 2026年1月</span>
+      <span class="slide-number">01 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 2: The Problem -->
+  <section class="slide" id="slide-1">
+    <div class="content">
+      <h2 class="animate-in">当前 AI 编程工具的局限</h2>
+      <div class="three-col">
+        <div class="card animate-in delay-1">
+          <div class="card-icon">✍️</div>
+          <h3>Copilot</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">能补全代码，但你需要<strong class="highlight">逐行确认</strong></p>
+        </div>
+        <div class="card animate-in delay-2">
+          <div class="card-icon">🔧</div>
+          <h3>Cursor / Claude Code</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">能重构逻辑，但<strong class="highlight">调试、处理报错</strong>仍然是你的工作</p>
+        </div>
+        <div class="card animate-in delay-3" style="background: linear-gradient(135deg, rgba(233, 69, 96, 0.1), rgba(102, 126, 234, 0.1)); border-color: rgba(233, 69, 96, 0.3);">
+          <div class="card-icon" style="background: linear-gradient(135deg, #e94560, #667eea);">🎯</div>
+          <h3>Quest</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">Token 产出必须是<strong class="highlight">可交付的产物</strong></p>
+        </div>
+      </div>
+      <div class="quote animate-in delay-4" style="margin-top: 50px;">
+        "如果 AI 写了代码，最后还需要人来调试、测试、兜底，那这些 Token 的价值就大打折扣。"
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>核心理念</span>
+      <span class="slide-number">02 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 3: Formula -->
+  <section class="slide" id="slide-2">
+    <div class="content">
+      <h2 class="animate-in">Agent 架构公式</h2>
+      <div class="formula animate-in delay-1">
+        <span style="color: var(--highlight);">Agent 效果</span>
+        <span class="equals">=</span>
+        <span style="color: #667eea;">模型能力</span>
+        <span class="equals">×</span>
+        <span style="color: #764ba2;">Agent 架构</span>
+      </div>
+      <p class="subtitle animate-in delay-2" style="text-align: center; margin: 0 auto;">
+        模型能力是基础，但同样的模型在不同架构下表现天差地别
+      </p>
+      <div class="three-col animate-in delay-3" style="margin-top: 60px;">
+        <div class="card" style="text-align: center;">
+          <div class="card-icon" style="margin: 0 auto 20px;">📋</div>
+          <h3>上下文管理</h3>
+          <p style="color: var(--text-muted);">Agentic 而非机械</p>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div class="card-icon" style="margin: 0 auto 20px;">🛠️</div>
+          <h3>工具选择</h3>
+          <p style="color: var(--text-muted);">Bash 是最佳拍档</p>
+        </div>
+        <div class="card" style="text-align: center;">
+          <div class="card-icon" style="margin: 0 auto 20px;">🔄</div>
+          <h3>Agent Loop</h3>
+          <p style="color: var(--text-muted);">Spec → Coding → Verify</p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>架构设计</span>
+      <span class="slide-number">03 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 4: Context Management -->
+  <section class="slide" id="slide-3">
+    <div class="content">
+      <h2 class="animate-in">上下文管理：Agentic 而非机械</h2>
+      <div class="two-col">
+        <div class="animate-in delay-1">
+          <h3 style="color: var(--highlight);">模型自主压缩</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            不是"保留最近 N 轮对话"，而是让模型理解哪些信息对后续任务重要，哪些可以压缩。
+          </p>
+          <ul class="feature-list">
+            <li>对话轮数达到阈值</li>
+            <li>上下文长度接近限制</li>
+            <li>任务阶段切换</li>
+            <li>模型检测到上下文冗余</li>
+          </ul>
+        </div>
+        <div class="animate-in delay-2">
+          <h3 style="color: var(--highlight);">动态 Reminder 机制</h3>
+          <div class="comparison" style="margin-top: 20px;">
+            <div class="vs-card traditional">
+              <h4 style="margin-bottom: 12px;">传统方案</h4>
+              <p style="font-size: 14px; color: var(--text-muted);">系统提示词硬编码，缓存易失效，成本成倍增加</p>
+            </div>
+            <div class="vs-badge">VS</div>
+            <div class="vs-card quest">
+              <h4 style="margin-bottom: 12px;">Quest 方案</h4>
+              <p style="font-size: 14px; color: var(--text-muted);">动态注入需要关注的上下文，按需添加</p>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li>提高缓存命中率，降低推理成本</li>
+            <li>保持系统提示词简洁</li>
+            <li>灵活适配不同场景</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>上下文管理</span>
+      <span class="slide-number">04 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 5: Tool Selection -->
+  <section class="slide" id="slide-4">
+    <div class="content">
+      <h2 class="animate-in">工具选择：为什么 Bash 是最佳拍档</h2>
+      <p class="subtitle animate-in delay-1" style="margin-bottom: 40px;">
+        如果只能保留一个工具，那一定是 Bash。Less is More。
+      </p>
+      <div class="three-col">
+        <div class="card animate-in delay-1">
+          <div class="card-icon">📦</div>
+          <h3>大而全</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">
+            文件管理、进程控制、网络请求、文本处理、Git 操作——一个工具覆盖大部分场景
+          </p>
+        </div>
+        <div class="card animate-in delay-2">
+          <div class="card-icon">🔗</div>
+          <h3>可编程、可组合</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">
+            管道、重定向和脚本机制让简单命令组合成复杂工作流，契合 Agent 的任务拆解
+          </p>
+        </div>
+        <div class="card animate-in delay-3">
+          <div class="card-icon">🧠</div>
+          <h3>模型天生熟悉</h3>
+          <p style="color: var(--text-muted); line-height: 1.6;">
+            大模型预训练时已见过大量 Unix 命令和 Shell 脚本，无需详细教学
+          </p>
+        </div>
+      </div>
+      <div class="stats animate-in delay-4" style="justify-content: center; margin-top: 50px;">
+        <div class="stat">
+          <div class="stat-number">-12%</div>
+          <div class="stat-label">Token 消耗降低<br>（移除多余工具后）</div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>工具选择</span>
+      <span class="slide-number">05 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 6: Agent Loop -->
+  <section class="slide" id="slide-5">
+    <div class="content">
+      <h2 class="animate-in">Agent Loop：Spec → Coding → Verify</h2>
+      <p class="subtitle animate-in delay-1" style="margin-bottom: 40px;">
+        自主编程需要完整闭环，而非把问题抛给用户
+      </p>
+      <div class="timeline animate-in delay-2">
+        <div class="stage">
+          <span class="stage-number">01</span>
+          <span class="stage-label">Spec</span>
+        </div>
+        <div class="stage">
+          <span class="stage-number">02</span>
+          <span class="stage-label">Coding</span>
+        </div>
+        <div class="stage">
+          <span class="stage-number">03</span>
+          <span class="stage-label">Verify</span>
+        </div>
+      </div>
+      <div class="three-col animate-in delay-3">
+        <div>
+          <h4 style="color: var(--highlight); margin-bottom: 12px;">Spec 阶段</h4>
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+            澄清需求，明确验收标准，生成技术规格书，确保双方对"完成"的定义达成共识
+          </p>
+        </div>
+        <div>
+          <h4 style="color: var(--highlight); margin-bottom: 12px;">Coding 阶段</h4>
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+            根据 Spec 自主实现功能，无需用户持续监督，自主推进任务
+          </p>
+        </div>
+        <div>
+          <h4 style="color: var(--highlight); margin-bottom: 12px;">Verify 阶段</h4>
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+            自动运行测试验证实现，不符合 Spec 则自动迭代，而非把问题抛给用户
+          </p>
+        </div>
+      </div>
+      <div class="quote animate-in delay-4" style="margin-top: 40px;">
+        "AI 写代码、人来测试，不算自主编程。"
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>Agent Loop</span>
+      <span class="slide-number">06 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 7: Adaptive Complexity -->
+  <section class="slide" id="slide-6">
+    <div class="content">
+      <h2 class="animate-in">自动适配复杂度，而非堆砌功能</h2>
+      <div class="two-col">
+        <div class="animate-in delay-1">
+          <h3 style="color: var(--highlight);">动态加载 Skills</h3>
+          <p style="color: var(--text-muted); margin-bottom: 20px; line-height: 1.6;">
+            当任务涉及特定框架时，Quest 动态加载封装了工程实践的 Skills。
+          </p>
+          <ul class="feature-list">
+            <li>TypeScript 配置最佳实践</li>
+            <li>React 状态管理模式</li>
+            <li>数据库索引常见陷阱</li>
+            <li>API 设计规范</li>
+          </ul>
+          <p style="color: var(--text-muted); margin-top: 20px; font-size: 14px;">
+            团队也可将工程规范封装成 Skills：代码风格、Git 提交规范、测试覆盖率、安全审查清单
+          </p>
+        </div>
+        <div class="animate-in delay-2">
+          <h3 style="color: var(--highlight);">智能模型路由</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            当单一模型能力不足以覆盖任务需求时，Quest 自动调度多个模型协同工作。
+          </p>
+          <div class="card" style="margin-bottom: 24px;">
+            <p style="color: var(--text-muted); font-size: 14px;">
+              有的模型擅长推理，有的擅长写作，有的擅长处理长上下文。智能路由根据子任务特性选择最合适的模型，对用户来说面对的始终是一个 Quest。
+            </p>
+          </div>
+          <h3 style="color: var(--highlight);">多 Agent 架构</h3>
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+            主 Agent 负责规划协调，子 Agent 执行具体任务。<strong class="highlight">保持克制使用</strong>——只在确实需要时启用。
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>复杂度适配</span>
+      <span class="slide-number">07 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 8: Future Proof -->
+  <section class="slide" id="slide-7">
+    <div class="content">
+      <h2 class="animate-in">为未来模型而设计</h2>
+      <div class="two-col">
+        <div class="animate-in delay-1">
+          <div class="card" style="height: 100%;">
+            <h3 style="color: var(--highlight); margin-bottom: 20px;">设计原则</h3>
+            <ul class="feature-list">
+              <li>从第一天起就为 SOTA 模型设计</li>
+              <li>架构不为过去的模型打补丁</li>
+              <li>没有模型选择器，系统自动决策</li>
+              <li>确保随着底层模型能力提升，Agent 能力水涨船高</li>
+            </ul>
+          </div>
+        </div>
+        <div class="animate-in delay-2">
+          <div style="background: linear-gradient(135deg, rgba(233, 69, 96, 0.1), rgba(102, 126, 234, 0.1)); border: 1px solid rgba(233, 69, 96, 0.3); border-radius: 16px; padding: 40px;">
+            <p style="font-size: clamp(20px, 3vw, 28px); line-height: 1.5; font-style: italic;">
+              "Quest 不只是适配今天模型的 Agent，更是为 <strong class="highlight">6 个月后</strong>的模型准备的 Agent。"
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>未来设计</span>
+      <span class="slide-number">08 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 9: Self Evolution -->
+  <section class="slide" id="slide-8">
+    <div class="content">
+      <h2 class="animate-in">自进化：越用越强</h2>
+      <div class="two-col">
+        <div class="animate-in delay-1">
+          <h3 style="color: var(--highlight);">项目理解内化</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            Quest 能深度分析项目的代码结构、架构演进、团队规范，将这些信息内化为"项目理解"。
+          </p>
+          <ul class="feature-list">
+            <li>理解项目模块划分和依赖关系</li>
+            <li>识别代码风格和命名习惯</li>
+            <li>学习项目特定的架构模式</li>
+            <li>掌握团队的工程实践</li>
+          </ul>
+        </div>
+        <div class="animate-in delay-2">
+          <h3 style="color: var(--highlight);">自我学习能力</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            面对陌生的 API 或新框架，Quest 通过探索和实践进行自我学习：
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <span style="background: rgba(102, 126, 234, 0.2); padding: 10px 20px; border-radius: 20px; font-size: 14px;">阅读文档</span>
+            <span style="background: rgba(102, 126, 234, 0.2); padding: 10px 20px; border-radius: 20px; font-size: 14px;">尝试调用</span>
+            <span style="background: rgba(102, 126, 234, 0.2); padding: 10px 20px; border-radius: 20px; font-size: 14px;">分析错误</span>
+            <span style="background: rgba(102, 126, 234, 0.2); padding: 10px 20px; border-radius: 20px; font-size: 14px;">调整方案</span>
+          </div>
+          <p style="color: var(--text-muted); margin-top: 30px; font-size: 14px; line-height: 1.6;">
+            使用时间越长，它对项目理解越深，表现也越好。Quest 不仅执行任务，还会在执行中不断学习。
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>自进化能力</span>
+      <span class="slide-number">09 / 10</span>
+    </div>
+  </section>
+
+  <!-- Slide 10: Conclusion -->
+  <section class="slide" id="slide-9">
+    <div class="content">
+      <h2 class="animate-in">从结对到自主</h2>
+      <div class="animate-in delay-1" style="margin-bottom: 40px;">
+        <p class="subtitle">AI 辅助编程的三个阶段</p>
+      </div>
+      <div class="timeline animate-in delay-2" style="margin-bottom: 50px;">
+        <div style="text-align: center;">
+          <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+            <span style="font-size: 28px;">1</span>
+          </div>
+          <p style="color: var(--text-muted);">代码补全</p>
+        </div>
+        <div style="text-align: center;">
+          <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+            <span style="font-size: 28px;">2</span>
+          </div>
+          <p style="color: var(--text-muted);">结对编程</p>
+        </div>
+        <div style="text-align: center;">
+          <div style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, rgba(233, 69, 96, 0.3), rgba(102, 126, 234, 0.3)); border: 3px solid var(--highlight); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+            <span style="font-size: 36px; font-weight: 800;">3</span>
+          </div>
+          <p style="color: var(--highlight); font-weight: 600;">自主编程</p>
+        </div>
+      </div>
+      <div class="animate-in delay-3" style="text-align: center;">
+        <p style="font-size: clamp(18px, 2.5vw, 24px); color: var(--text-muted); line-height: 1.8; max-width: 800px; margin: 0 auto;">
+          当开发者的角色从<strong class="highlight">"代码编程者"</strong>转变为<strong class="highlight">"意图定义者"</strong>，<br>
+          软件开发的范式将发生根本性改变。
+        </p>
+        <div style="margin-top: 50px; padding: 30px; background: linear-gradient(135deg, rgba(233, 69, 96, 0.1), rgba(102, 126, 234, 0.1)); border: 1px solid rgba(233, 69, 96, 0.3); border-radius: 16px; display: inline-block;">
+          <p style="font-size: clamp(20px, 3vw, 28px); font-weight: 600;">
+            Quest 正在构建的未来：<br>
+            <span style="color: var(--highlight);">一个自进化的、自主编程的 Coding Agent</span>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="slide-footer">
+      <span>未来展望</span>
+      <span class="slide-number">10 / 10</span>
+    </div>
+  </section>
+
+  <script>
+    // Navigation
+    const slides = document.querySelectorAll('.slide');
+    const navDots = document.querySelectorAll('.nav-dot');
+    const progressBar = document.getElementById('progress');
+    let currentSlide = 0;
+
+    function updateProgress() {
+      const progress = ((currentSlide + 1) / slides.length) * 100;
+      progressBar.style.width = progress + '%';
+    }
+
+    function goToSlide(index) {
+      if (index >= 0 && index < slides.length) {
+        currentSlide = index;
+        slides[index].scrollIntoView({ behavior: 'smooth' });
+        navDots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === index);
+        });
+        updateProgress();
+      }
+    }
+
+    // Navigation dots
+    navDots.forEach((dot, index) => {
+      dot.addEventListener('click', () => goToSlide(index));
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        goToSlide(currentSlide + 1);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goToSlide(currentSlide - 1);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(slides.length - 1);
+      }
+    });
+
+    // Intersection Observer for slide detection
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.5
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const index = Array.from(slides).indexOf(entry.target);
+          currentSlide = index;
+          navDots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === index);
+          });
+          updateProgress();
+        }
+      });
+    }, observerOptions);
+
+    slides.forEach(slide => observer.observe(slide));
+
+    // Touch/swipe support
+    let touchStartY = 0;
+    let touchEndY = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndY = e.changedTouches[0].screenY;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const swipeThreshold = 50;
+      const diff = touchStartY - touchEndY;
+      if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0) {
+          goToSlide(currentSlide + 1);
+        } else {
+          goToSlide(currentSlide - 1);
+        }
+      }
+    }
+
+    // Initialize
+    updateProgress();
+  </script>
+</body>
+</html>

@@ -166,10 +166,19 @@
       .popup-header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 10px;
         padding-bottom: 12px;
         border-bottom: 1px solid #eee;
         margin-bottom: 12px;
+      }
+
+      .word-section {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
       }
 
       .word {
@@ -184,6 +193,12 @@
         font-family: "Lucida Sans Unicode", "Arial Unicode MS", sans-serif;
       }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
       .audio-btn {
         background: none;
         border: none;
@@ -192,13 +207,34 @@
         padding: 4px 8px;
         border-radius: 4px;
         transition: background 0.2s;
-        margin-left: auto;
       }
       .audio-btn:hover {
         background: #f0f0f0;
       }
       .audio-btn:active {
         transform: scale(0.95);
+      }
+
+      .vocab-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        opacity: 0.6;
+      }
+      .vocab-btn:hover {
+        background: #f0f0f0;
+        opacity: 1;
+      }
+      .vocab-btn:active {
+        transform: scale(0.95);
+      }
+      .vocab-btn.added {
+        opacity: 1;
+        color: #f59e0b;
       }
 
       .popup-body {
@@ -674,14 +710,19 @@
    */
   function createPopupContent(data) {
     let html = '<div class="popup-content">';
-    
-    // 头部：单词、音标、发音按钮
+
+    // 头部：单词、音标、发音按钮、收藏按钮
     html += '<div class="popup-header">';
+    html += '<div class="word-section">';
     html += `<span class="word">${escapeHtml(data.word)}</span>`;
     if (data.phonetic) {
       html += `<span class="phonetic">${escapeHtml(data.phonetic)}</span>`;
     }
+    html += '</div>';
+    html += '<div class="header-actions">';
+    html += `<button class="vocab-btn" data-word="${escapeHtml(data.word)}" data-phonetic="${escapeHtml(data.phonetic || '')}" title="加入生词本">⭐</button>`;
     html += `<button class="audio-btn" data-audio="${escapeHtml(data.audioUrl || '')}" data-word="${escapeHtml(data.word)}" title="发音">🔊</button>`;
+    html += '</div>';
     html += '</div>';
     
     // 主体：词义
@@ -800,7 +841,18 @@
         playAudio(audioUrl, word);
       });
     }
-    
+
+    // 收藏按钮点击
+    const vocabBtn = popupElement.querySelector('.vocab-btn');
+    if (vocabBtn) {
+      vocabBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const word = vocabBtn.dataset.word;
+        const phonetic = vocabBtn.dataset.phonetic;
+        addToVocabulary(word, phonetic, vocabBtn);
+      });
+    }
+
     // 详细翻译按钮点击
     const detailBtn = popupElement.querySelector('.detail-btn');
     if (detailBtn) {
@@ -964,6 +1016,109 @@
       utterance.rate = 0.9;
       speechSynthesis.speak(utterance);
     }
+  }
+
+  // ==================== 生词本功能 ====================
+
+  /**
+   * 添加单词到生词本
+   * @param {string} word - 单词
+   * @param {string} phonetic - 音标
+   * @param {HTMLElement} btn - 按钮元素
+   */
+  async function addToVocabulary(word, phonetic, btn) {
+    try {
+      // 获取上下文和来源信息
+      const context = getWordContext(word);
+      const source = window.location.href;
+      const sourceTitle = document.title;
+
+      // 构建释义（从当前显示的浮窗中提取）
+      let definition = '';
+      const popupBody = popupElement?.querySelector('.popup-body');
+      if (popupBody) {
+        const firstDef = popupBody.querySelector('.def');
+        if (firstDef) {
+          definition = firstDef.textContent;
+        }
+      }
+
+      // 发送消息给 background
+      const response = await chrome.runtime.sendMessage({
+        type: "ADD_TO_VOCABULARY",
+        data: {
+          word,
+          phonetic,
+          definition,
+          context,
+          source,
+          sourceTitle,
+          familiarity: 1
+        }
+      });
+
+      if (response && response.success) {
+        // 更新按钮状态
+        btn.classList.add('added');
+        btn.title = response.message || '已收藏';
+
+        // 2秒后恢复按钮状态
+        setTimeout(() => {
+          btn.title = '加入生词本';
+        }, 2000);
+      } else {
+        console.error('[Smart Hover Translator] 添加生词失败:', response?.message);
+        btn.title = response?.message || '添加失败';
+      }
+    } catch (error) {
+      console.error('[Smart Hover Translator] 添加生词错误:', error);
+      btn.title = '添加失败';
+    }
+  }
+
+  /**
+   * 获取单词的上下文句子
+   * @param {string} word - 单词
+   * @returns {string} - 包含该单词的句子
+   */
+  function getWordContext(word) {
+    try {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+        // 如果有选中的文本，使用选中的文本
+        return selection.toString().trim();
+      }
+
+      // 否则尝试从页面中查找包含该单词的句子
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+      );
+
+      const lowerWord = word.toLowerCase();
+      let node;
+
+      while (node = walker.nextNode()) {
+        const text = node.textContent;
+        const lowerText = text.toLowerCase();
+
+        if (lowerText.includes(lowerWord)) {
+          // 找到包含单词的文本节点，提取句子
+          const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+          for (const sentence of sentences) {
+            if (sentence.toLowerCase().includes(lowerWord)) {
+              return sentence.trim();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Smart Hover Translator] 获取上下文失败:', error);
+    }
+
+    return '';
   }
 
   // ==================== 启动 ====================

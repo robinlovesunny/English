@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生词本 - Smart Hover Translator</title>
+  <link rel="stylesheet" href="vocabulary.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <header class="header">
+      <div class="header-left">
+        <h1>📚 生词本</h1>
+        <p class="subtitle">基于艾宾浩斯遗忘曲线的智能复习系统</p>
+      </div>
+      <div class="header-right">
+        <button id="backBtn" class="btn btn-secondary">返回设置</button>
+      </div>
+    </header>
+
+    <!-- 统计卡片 -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="totalCount">0</div>
+        <div class="stat-label">总词数</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-value" id="dueCount">0</div>
+        <div class="stat-label">今日待复习</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="masteredCount">0</div>
+        <div class="stat-label">已掌握</div>
+      </div>
+    </section>
+
+    <!-- 标签页导航 -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="review">
+        <span class="tab-icon">📋</span>
+        今日复习
+        <span class="badge" id="reviewBadge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="all">
+        <span class="tab-icon">📖</span>
+        全部生词
+      </button>
+      <button class="tab-btn" data-tab="pending">
+        <span class="tab-icon">⏳</span>
+        待复习
+      </button>
+    </nav>
+
+    <!-- 今日复习标签页 -->
+    <section id="reviewTab" class="tab-content active">
+      <div class="review-intro" id="reviewIntro">
+        <h2>🎯 今日复习</h2>
+        <p>根据艾宾浩斯遗忘曲线，今天有 <strong id="reviewCount">0</strong> 个单词需要复习</p>
+        <button id="startReviewBtn" class="btn btn-primary btn-large">开始复习</button>
+      </div>
+
+      <!-- 复习卡片 -->
+      <div class="review-card" id="reviewCard" style="display: none;">
+        <div class="review-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <span class="progress-text" id="progressText">1 / 10</span>
+        </div>
+
+        <div class="card-content">
+          <div class="word-section">
+            <h2 class="review-word" id="reviewWord">word</h2>
+            <span class="review-phonetic" id="reviewPhonetic">/phonetic/</span>
+            <button class="audio-btn" id="reviewAudioBtn" title="发音">🔊</button>
+          </div>
+
+          <div class="context-section" id="contextSection">
+            <h3>📖 原文上下文</h3>
+            <p class="context-text" id="contextText"></p>
+          </div>
+
+          <div class="definition-section" id="definitionSection" style="display: none;">
+            <h3>💡 释义</h3>
+            <p class="definition-text" id="definitionText"></p>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button id="showAnswerBtn" class="btn btn-secondary">显示答案</button>
+          <div class="review-buttons" id="reviewButtons" style="display: none;">
+            <button id="forgottenBtn" class="btn btn-danger">😅 忘记</button>
+            <button id="rememberedBtn" class="btn btn-success">✅ 记得</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 复习完成 -->
+      <div class="review-complete" id="reviewComplete" style="display: none;">
+        <div class="complete-icon">🎉</div>
+        <h2>复习完成！</h2>
+        <p>今天你已经完成了所有复习任务</p>
+        <div class="complete-stats">
+          <div class="complete-stat">
+            <span class="complete-value" id="rememberedCount">0</span>
+            <span class="complete-label">记得</span>
+          </div>
+          <div class="complete-stat">
+            <span class="complete-value" id="forgottenCount">0</span>
+            <span class="complete-label">忘记</span>
+          </div>
+        </div>
+        <button id="finishReviewBtn" class="btn btn-primary">完成</button>
+      </div>
+    </section>
+
+    <!-- 全部生词标签页 -->
+    <section id="allTab" class="tab-content">
+      <div class="filter-bar">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索单词...">
+        <select id="familiarityFilter" class="filter-select">
+          <option value="">全部熟悉度</option>
+          <option value="1">🆕 陌生</option>
+          <option value="2">🤔 模糊</option>
+          <option value="3">✅ 认识</option>
+        </select>
+        <select id="stageFilter" class="filter-select">
+          <option value="">全部阶段</option>
+          <option value="0">🌱 新词</option>
+          <option value="1-3">📚 学习中</option>
+          <option value="4-6">🎯 巩固中</option>
+          <option value="7">🏆 已掌握</option>
+        </select>
+      </div>
+
+      <div class="word-list" id="wordList">
+        <!-- 单词列表将在这里动态生成 -->
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">📚</div>
+        <p>还没有生词</p>
+        <p class="empty-hint">在阅读时遇到生词，点击翻译浮窗上的 ⭐ 按钮添加</p>
+      </div>
+    </section>
+
+    <!-- 待复习标签页 -->
+    <section id="pendingTab" class="tab-content">
+      <div class="pending-intro">
+        <p>未来需要复习的单词列表</p>
+      </div>
+      <div class="word-list" id="pendingList">
+        <!-- 待复习列表将在这里动态生成 -->
+      </div>
+      <div class="empty-state" id="pendingEmptyState" style="display: none;">
+        <div class="empty-icon">✨</div>
+        <p>没有待复习的单词</p>
+        <p class="empty-hint">所有单词都已安排复习或已掌握</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- 删除确认弹窗 -->
+  <div class="modal" id="deleteModal" style="display: none;">
+    <div class="modal-content">
+      <h3>确认删除</h3>
+      <p>确定要删除这个单词吗？此操作不可恢复。</p>
+      <div class="modal-actions">
+        <button id="cancelDeleteBtn" class="btn btn-secondary">取消</button>
+        <button id="confirmDeleteBtn" class="btn btn-danger">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vocabulary.js"></script>
+</body>
+</html>

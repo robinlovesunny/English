@@ -28,12 +28,33 @@ body {
 .header {
   text-align: center;
   margin-bottom: 32px;
+  position: relative;
 }
 
 .header h1 {
   font-size: 24px;
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.header-link {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.header-link:hover {
+  transform: translateY(-50%) translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 /* 主体内容 */

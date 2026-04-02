@@ -36,9 +36,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modelName = document.getElementById('modelName');
   const apiKeyWarning = document.getElementById('apiKeyWarning');
   const openOptions = document.getElementById('openOptions');
+  const openVocabulary = document.getElementById('openVocabulary');
+  const vocabBadge = document.getElementById('vocabBadge');
 
   // 加载当前设置
   await loadSettings();
+
+  // 加载生词本统计
+  await loadVocabularyStats();
 
   // 监听开关变化
   enableToggle.addEventListener('change', async () => {
@@ -54,6 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 打开设置页面
   openOptions.addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
+  });
+
+  // 打开生词本页面
+  openVocabulary.addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('vocabulary.html') });
   });
 
   /**
@@ -117,6 +127,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusText.textContent = '已禁用';
       statusText.style.color = '#999';
       statusDot.className = 'status-dot disabled';
+    }
+  }
+
+  /**
+   * 加载生词本统计
+   */
+  async function loadVocabularyStats() {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_VOCABULARY_STATS' });
+      if (response.success && response.dueToday > 0) {
+        vocabBadge.textContent = response.dueToday;
+        vocabBadge.style.display = 'inline-block';
+      } else {
+        vocabBadge.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('加载生词本统计失败:', error);
+      vocabBadge.style.display = 'none';
     }
   }
 });
