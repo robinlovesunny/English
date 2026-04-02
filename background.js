@@ -216,8 +216,140 @@ async function callModelAPI(word, sendStreamChunk) {
   }
 }
 
+// ==================== LLM 查词（主要方式） ====================
+
+/**
+ * 使用大模型 API 查询单词释义
+ * 返回结构化 JSON 数据，供初始浮窗显示
+ * @param {string} word - 要查询的单词
+ * @returns {Promise<Object>} - 格式化后的单词数据
+ */
+async function fetchWordByLLM(word) {
+  const cacheKey = word.toLowerCase();
+  
+  // 检查缓存
+  if (wordCache.has(cacheKey)) {
+    console.log(`[Smart Hover Translator] LLM 查词缓存命中: ${word}`);
+    return wordCache.get(cacheKey);
+  }
+  
+  // 获取 API 配置
+  const config = await getApiConfig();
+  
+  // 检查 API Key 是否已配置
+  if (!config.apiKey) {
+    return { error: '请先在扩展设置中配置 API Key' };
+  }
+  
+  // 检查 baseUrl 是否有效
+  if (!config.baseUrl) {
+    return { error: '请先配置 API 服务地址' };
+  }
+  
+  // 检查 model 是否有效
+  if (!config.model) {
+    return { error: '请先配置模型名称' };
+  }
+  
+  const url = `${config.baseUrl}/chat/completions`;
+  
+  console.log(`[Smart Hover Translator] LLM 查词: ${word}, 提供商: ${config.provider}, 模型: ${config.model}, API Key: ${maskApiKey(config.apiKey)}`);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个英汉词典。用户给你一个英文单词，请返回 JSON 格式的翻译结果。要求：1) phonetic 用国际音标；2) meanings 包含所有词性，每个词性最多3个释义；3) definition 用中文；4) example 用英文。只返回 JSON，不要其他内容。\n\nJSON 格式如下：\n{\n  "word": "单词",\n  "phonetic": "/音标/",\n  "meanings": [\n    {\n      "partOfSpeech": "词性",\n      "definitions": [\n        {\n          "definition": "中文释义",\n          "example": "英文例句"\n        }\n      ]\n    }\n  ]\n}'
+          },
+          {
+            role: 'user',
+            content: word
+          }
+        ],
+        stream: false,
+        temperature: 0.1,
+        max_tokens: 300
+      })
+    });
+    
+    // 检查响应状态
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Smart Hover Translator] LLM 查词 API 请求失败: ${response.status}`, errorText);
+      
+      if (response.status === 401) {
+        return { error: 'API Key 无效，请检查设置' };
+      } else if (response.status === 429) {
+        return { error: 'API 请求过于频繁，请稍后再试' };
+      } else {
+        return { error: `API 请求失败 (${response.status})` };
+      }
+    }
+    
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      console.error('[Smart Hover Translator] LLM 返回内容为空');
+      return { error: '翻译结果为空' };
+    }
+    
+    // 解析 JSON 结果
+    try {
+      // 移除可能的 markdown 代码块标记
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.slice(7);
+      } else if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.slice(3);
+      }
+      if (jsonStr.endsWith('```')) {
+        jsonStr = jsonStr.slice(0, -3);
+      }
+      jsonStr = jsonStr.trim();
+      
+      const result = JSON.parse(jsonStr);
+      
+      // 验证必要字段
+      if (!result.word || !result.meanings) {
+        console.error('[Smart Hover Translator] LLM 返回 JSON 缺少必要字段:', result);
+        return { error: '翻译结果解析失败' };
+      }
+      
+      // 存入缓存
+      wordCache.set(cacheKey, result);
+      console.log(`[Smart Hover Translator] LLM 查词成功: ${word}`);
+      
+      return result;
+    } catch (parseError) {
+      console.error('[Smart Hover Translator] LLM 返回 JSON 解析失败:', parseError, content);
+      return { error: '翻译结果解析失败' };
+    }
+  } catch (error) {
+    console.error('[Smart Hover Translator] LLM 查词网络错误:', error);
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      return { error: '网络连接失败，请检查网络' };
+    } else {
+      return { error: '翻译失败，请稍后重试' };
+    }
+  }
+}
+
+// ==================== Free Dictionary API（备用，已切换到 LLM 查词） ====================
+
 /**
  * 调用 Free Dictionary API 获取单词释义
+ * 注意：此函数已不再作为默认查词方式，仅保留作为备用
+ * 当前初始查词已切换到 fetchWordByLLM() 使用用户配置的大模型 API
  * @param {string} word - 要查询的单词
  * @returns {Promise<Object>} - 格式化后的单词数据
  */
@@ -255,6 +387,7 @@ async function fetchDictionaryData(word) {
 
 /**
  * 解析 Free Dictionary API 返回的数据
+ * 注意：此函数配合 fetchDictionaryData() 使用，已保留作为备用
  * @param {Array} data - API 返回的原始数据
  * @returns {Object} - 格式化后的单词数据
  */
@@ -349,7 +482,8 @@ async function getSettings() {
       apiProvider: 'alibaba',
       customBaseUrl: '',
       modelName: '',
-      hoverDelay: 300
+      hoverDelay: 300,
+      triggerMode: 'selection'
     }, (settings) => {
       resolve(settings);
     });
@@ -423,11 +557,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "TRANSLATE_WORD") {
-    // 调用词典 API
-    fetchDictionaryData(message.word)
+    // 调用 LLM 查词（已从 Free Dictionary API 切换到用户配置的大模型 API）
+    fetchWordByLLM(message.word)
       .then(sendResponse)
       .catch((error) => {
-        console.error("Translation error:", error);
+        console.error("[Smart Hover Translator] LLM 查词错误:", error);
         sendResponse({ error: "翻译失败" });
       });
     return true; // 表示异步响应
@@ -508,7 +642,8 @@ chrome.runtime.onInstalled.addListener((details) => {
       apiProvider: 'alibaba',
       customBaseUrl: '',
       modelName: '',
-      hoverDelay: 300
+      hoverDelay: 300,
+      triggerMode: 'selection'
     });
   } else if (details.reason === "update") {
     console.log("Smart Hover Translator 已更新到版本", chrome.runtime.getManifest().version);

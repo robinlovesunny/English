@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const eyeIcon = document.getElementById('eyeIcon');
   const testApiBtn = document.getElementById('testApiBtn');
   const testResult = document.getElementById('testResult');
+  const triggerModeRadios = document.querySelectorAll('input[name="triggerMode"]');
+  const hoverDelayGroup = document.getElementById('hoverDelayGroup');
   const hoverDelayInput = document.getElementById('hoverDelay');
   const hoverDelayValue = document.getElementById('hoverDelayValue');
   const blacklistInput = document.getElementById('blacklistInput');
@@ -57,6 +59,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   providerRadios.forEach(radio => {
     radio.addEventListener('change', () => {
       updateProviderFields(radio.value);
+    });
+  });
+
+  // 监听触发模式变化
+  triggerModeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      updateHoverDelayVisibility(radio.value);
     });
   });
 
@@ -100,6 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         apiProvider: 'alibaba',
         customBaseUrl: '',
         modelName: '',  // 统一的模型名称字段
+        triggerMode: 'selection',  // 默认划词模式
         hoverDelay: 300,
         blacklist: []
       });
@@ -116,6 +126,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // 设置 API Key
       apiKeyInput.value = localData.apiKey;
+
+      // 设置触发模式
+      const triggerModeRadio = document.querySelector(`input[name="triggerMode"][value="${syncData.triggerMode}"]`);
+      if (triggerModeRadio) {
+        triggerModeRadio.checked = true;
+      }
+      updateHoverDelayVisibility(syncData.triggerMode);
 
       // 设置悬停延迟
       hoverDelayInput.value = syncData.hoverDelay;
@@ -159,6 +176,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 优先使用存储的模型名称，否则使用默认值
       modelNameInput.value = storedModelName || config.defaultModel;
       modelNameInput.placeholder = config.defaultModel;
+    }
+  }
+
+  /**
+   * 更新悬停延迟设置的可见性
+   * @param {string} mode - 触发模式：hover / selection / both
+   */
+  function updateHoverDelayVisibility(mode) {
+    if (mode === 'selection') {
+      // 划词模式隐藏悬停延迟设置
+      hoverDelayGroup.style.display = 'none';
+    } else {
+      // 悬停模式或双模式显示悬停延迟设置
+      hoverDelayGroup.style.display = 'block';
     }
   }
 
@@ -303,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const baseUrl = baseUrlInput.value.trim();
       const model = modelNameInput.value.trim();
       const apiKey = apiKeyInput.value.trim();
+      const triggerMode = document.querySelector('input[name="triggerMode"]:checked')?.value || 'selection';
       const hoverDelay = parseInt(hoverDelayInput.value, 10);
 
       // 保存到 sync 存储
@@ -310,6 +342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         apiProvider: provider,
         customBaseUrl: provider === 'custom' ? baseUrl : '',
         modelName: model,  // 统一保存模型名
+        triggerMode,
         hoverDelay,
         blacklist
       });

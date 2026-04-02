@@ -275,6 +275,12 @@ body {
   text-align: right;
 }
 
+/* 悬停延迟组（可隐藏） */
+#hoverDelayGroup {
+  margin-top: 8px;
+  transition: opacity 0.2s, max-height 0.2s;
+}
+
 /* 测试结果 */
 .test-result {
   margin-top: 8px;

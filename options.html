@@ -79,20 +79,46 @@
         </div>
       </section>
 
-      <!-- 悬停设置卡片 -->
+      <!-- 触发设置卡片 -->
       <section class="card">
         <h2 class="card-title">
           <span class="card-icon">▶</span>
-          悬停设置
+          触发设置
         </h2>
         <div class="card-content">
+          <!-- 触发模式选择 -->
           <div class="form-group">
-            <label class="form-label">悬停延迟</label>
-            <div class="slider-group">
-              <input type="range" id="hoverDelay" class="form-range" min="100" max="1000" step="50" value="300">
-              <span class="slider-value" id="hoverDelayValue">300ms</span>
+            <label class="form-label">触发模式</label>
+            <div class="provider-options">
+              <label class="radio-option">
+                <input type="radio" name="triggerMode" value="hover">
+                <span class="radio-custom"></span>
+                <span class="radio-label">悬停模式</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="triggerMode" value="selection">
+                <span class="radio-custom"></span>
+                <span class="radio-label">划词模式</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="triggerMode" value="both">
+                <span class="radio-custom"></span>
+                <span class="radio-label">双模式</span>
+              </label>
             </div>
-            <p class="form-hint">鼠标悬停在单词上多久后触发翻译（100-1000毫秒）</p>
+            <p class="form-hint">悬停模式：鼠标悬停触发 | 划词模式：选中文字触发 | 双模式：两者同时启用</p>
+          </div>
+
+          <!-- 悬停延迟设置 -->
+          <div id="hoverDelayGroup">
+            <div class="form-group">
+              <label class="form-label">悬停延迟</label>
+              <div class="slider-group">
+                <input type="range" id="hoverDelay" class="form-range" min="100" max="1000" step="50" value="300">
+                <span class="slider-value" id="hoverDelayValue">300ms</span>
+              </div>
+              <p class="form-hint">鼠标悬停在单词上多久后触发翻译（100-1000毫秒）</p>
+            </div>
           </div>
         </div>
       </section>

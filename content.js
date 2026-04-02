@@ -26,7 +26,8 @@
   let settings = {
     enabled: true,
     blacklist: [],
-    hoverDelay: 300  // 悬停防抖延迟（毫秒）
+    hoverDelay: 300,         // 悬停防抖延迟（毫秒）
+    triggerMode: 'selection' // 触发模式：'hover' | 'selection' | 'both'
   };
   let popupHost = null;       // Shadow DOM 宿主元素
   let shadowRoot = null;      // Shadow Root
@@ -335,14 +336,40 @@
   // ==================== 事件绑定 ====================
 
   /**
+   * 绑定触发事件（根据 triggerMode 动态绑定）
+   */
+  function bindTriggerEvents() {
+    const mode = settings.triggerMode;
+    
+    if (mode === 'hover' || mode === 'both') {
+      // 绑定悬停模式事件
+      document.addEventListener('mouseover', handleMouseOver, true);
+      document.addEventListener('mouseout', handleMouseOut, true);
+    }
+    
+    if (mode === 'selection' || mode === 'both') {
+      // 绑定划词模式事件
+      document.addEventListener('mouseup', handleMouseUp, true);
+    }
+  }
+
+  /**
+   * 解绑所有触发事件
+   */
+  function unbindTriggerEvents() {
+    // 移除悬停模式事件
+    document.removeEventListener('mouseover', handleMouseOver, true);
+    document.removeEventListener('mouseout', handleMouseOut, true);
+    // 移除划词模式事件
+    document.removeEventListener('mouseup', handleMouseUp, true);
+  }
+
+  /**
    * 绑定事件监听器
    */
   function bindEvents() {
-    // 鼠标悬停事件（使用防抖）
-    document.addEventListener('mouseover', handleMouseOver, true);
-    
-    // 鼠标移出事件
-    document.addEventListener('mouseout', handleMouseOut, true);
+    // 根据模式绑定触发事件
+    bindTriggerEvents();
     
     // ESC 键关闭
     document.addEventListener('keydown', (e) => {
@@ -367,6 +394,12 @@
         }
         if (changes.hoverDelay !== undefined) {
           settings.hoverDelay = changes.hoverDelay.newValue;
+        }
+        if (changes.triggerMode !== undefined) {
+          settings.triggerMode = changes.triggerMode.newValue;
+          // 重新绑定事件
+          unbindTriggerEvents();
+          bindTriggerEvents();
         }
       }
     });
@@ -399,6 +432,43 @@
     
     // 设置延迟关闭
     startCloseTimer();
+  }
+
+  /**
+   * 处理鼠标释放事件（划词翻译模式）
+   */
+  function handleMouseUp(event) {
+    if (!settings.enabled) return;
+    
+    // 忽略浮窗内的点击
+    if (popupHost && popupHost.contains(event.target)) return;
+    
+    // 延迟一小段时间等待选区稳定
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const selectedText = selection ? selection.toString().trim() : '';
+      
+      // 如果没有选中文本，关闭浮窗
+      if (!selectedText) {
+        hidePopup();
+        return;
+      }
+      
+      // 验证是否为有效英文单词
+      if (!WORD_REGEX.test(selectedText)) return;
+      
+      // 避免重复翻译
+      if (selectedText === currentWord) return;
+      
+      // 获取选区位置用于定位浮窗
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.bottom;
+      
+      // 复用现有翻译流程
+      translateWord(selectedText, x, y);
+    }, 10);
   }
 
   /**
